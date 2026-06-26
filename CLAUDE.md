@@ -35,17 +35,19 @@ CashappSpoof/
 │   ├── LaunchScreen.storyboard    # App launch screen
 │   ├── ActivityCell.swift         # Custom UITableViewCell
 │   └── Assets.xcassets/           # Images and colors
-└── Controllers
-    ├── AppDelegate.swift           # App lifecycle
-    ├── SceneDelegate.swift         # Scene lifecycle (iOS 13+)
-    ├── ViewController.swift        # Root/Home screen
-    ├── BalanceViewController.swift # Balance display screen
-    ├── SendViewController.swift    # Payment send flow
-    ├── LoadingViewController.swift # Loading/transition screen
-    ├── SuccessViewController.swift # Payment success screen (animated checkmark)
-    ├── ResultViewController.swift  # Transaction result screen (with share/export)
-    ├── ActivityViewController.swift# Transaction activity list
-    └── ActivityDetailViewController.swift # Detail view for activity
+├── Controllers
+│   ├── AppDelegate.swift           # App lifecycle
+│   ├── SceneDelegate.swift         # Scene lifecycle (iOS 13+)
+│   ├── ViewController.swift        # Root/Home screen
+│   ├── BalanceViewController.swift # Balance display screen
+│   ├── SendViewController.swift    # Payment send flow
+│   ├── LoadingViewController.swift # Loading/transition screen
+│   ├── SuccessViewController.swift # Payment success screen (animated checkmark)
+│   ├── ResultViewController.swift  # Transaction result screen (with share/export)
+│   ├── ActivityViewController.swift# Transaction activity list
+│   └── ActivityDetailViewController.swift # Detail view for activity
+└── Extensions
+    └── ImageViewExtension.swift    # UIImageView utility extensions (circular mask, initials avatar)
 ```
 
 ### Application Flow
@@ -127,6 +129,8 @@ Launch Screen
 ### `ActivityCell.swift`
 - Custom `UITableViewCell` subclass
 - Renders individual transaction rows with relevant data (name, amount, date)
+- Uses `ImageViewExtension` to display a **circular avatar with initials placeholder** when no profile image is available
+- Initials are derived from the transaction contact/recipient name and rendered programmatically onto a colored circular background
 
 ### `ActivityDetailViewController.swift`
 - Shows a detailed view of a single activity/transaction
@@ -134,7 +138,12 @@ Launch Screen
 
 ### `ImageViewExtension.swift`
 - Utility extension on `UIImageView`
-- Likely adds helper methods such as circular masking, corner rounding, or async image loading
+- **Circular masking**: Rounds the image view into a circle using `layer.cornerRadius = frame.height / 2` and `layer.masksToBounds = true`
+- **Initials avatar generation**: Programmatically creates a `UIImage` with a solid background color and centered initials text, used as a placeholder when no real avatar image is available
+  - Extracts initials from a full name string (typically first + last initial, uppercased)
+  - Renders text onto a colored background using `UIGraphicsImageRenderer`
+  - Applied to `UIImageView` instances in `ActivityCell` via the extension method
+- May also include async image loading helpers (inferred from original structure)
 
 ---
 
@@ -175,12 +184,14 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
   }
   ```
 - **Data passing**: Between view controllers likely via `prepare(for:sender:)` segue method or direct property assignment
+- **Extension-driven utilities**: Reusable UI helpers (e.g., circular masking, initials avatar) are placed in `UIImageView` extensions rather than inline in view controllers or cells, keeping cell/controller code clean
 
 ### UI Construction
 - Storyboard + Auto Layout for interface design
 - `IBOutlet` and `IBAction` connections from storyboard
 - `UITableView` with custom cells for list displays
 - **Programmatic `CAShapeLayer` animation** used in `SuccessViewController` for the checkmark (not storyboard-based)
+- **Programmatic image generation** used in `ImageViewExtension` for initials avatars via `UIGraphicsImageRenderer`
 
 ### Animation Conventions
 - **Framework**: `CoreAnimation` (`CAShapeLayer`, `CABasicAnimation`) — no third-party animation libraries
@@ -197,6 +208,16 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
 - **Scope**: Only the relevant receipt/result view (or a designated subview) is captured, not the entire screen, to produce a clean shareable image
 - **No third-party libraries**: Sharing relies entirely on native UIKit (`UIActivityViewController`) — no external SDKs
 - **iPad compatibility**: When presenting `UIActivityViewController`, `popoverPresentationController?.sourceView` should be set to support iPad popover presentation
+
+### Initials Avatar / Circular Image Conventions
+- **Location**: Avatar logic lives in `ImageViewExtension.swift` as a `UIImageView` extension — not inline in cells or controllers
+- **Rendering**: Initials images are generated with `UIGraphicsImageRenderer`, consistent with the project-wide rendering approach
+- **Circular masking**: Applied via `layer.cornerRadius = frame.height / 2` + `layer.masksToBounds = true` on the `UIImageView`
+- **Initials extraction**: Derived from a name string, typically first letter of first name + first letter of last name, uppercased
+- **Background color**: A solid color (likely a consistent brand-adjacent color or a deterministic color derived from the name) fills the circular avatar background
+- **Text styling**: Initials rendered in white, centered, with an appropriately scaled system font
+- **Usage**: Called on `UIImageView` instances within `ActivityCell` (and potentially other cells/screens) when no real photo is available
+- **Reusability**: The extension methods are generic enough to be reused anywhere a `UIImageView` needs a circular avatar placeholder
 
 ---
 
@@ -217,7 +238,7 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
 
 ### File Count Summary
 - **Total Files**: ~33
-- **Swift Source Files**: ~14 view controllers + support files
+- **Swift Source Files**: ~14 view controllers + support files + extensions
 - **Storyboard Files**: 2 (Main + LaunchScreen)
 - **Asset Files**: Multiple image sets within `.xcassets`
 - **Configuration**: `Info.plist`, `.xcodeproj` project files
@@ -230,13 +251,14 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
 |---|---|---|
 | Animated checkmark on success | `SuccessViewController.swift` | `CAShapeLayer` + `CABasicAnimation`, triggered in `viewDidAppear` |
 | Screenshot / Share Sheet Export | `ResultViewController.swift` | `UIGraphicsImageRenderer` → `UIActivityViewController`, user-initiated |
+| Circular avatar placeholder with initials | `ImageViewExtension.swift` + `ActivityCell.swift` | `UIGraphicsImageRenderer`-generated initials image, circular mask via `layer.cornerRadius`, applied in `ActivityCell` |
 
 ---
 
 ## Important Notes for AI Coding Assistance
 
-1. **No external dependencies** — All code relies on native iOS/UIKit frameworks only; animations use `CoreAnimation`, not libraries like Lottie; sharing uses `UIActivityViewController`, not third-party SDKs.
-2. **Storyboard-centric** — UI changes should be made in `Main.storyboard`; view controllers use `@IBOutlet`/`@IBAction`. Exception: `SuccessViewController` checkmark animation is fully programmatic.
+1. **No external dependencies** — All code relies on native iOS/UIKit frameworks only; animations use `CoreAnimation`, not libraries like Lottie; sharing uses `UIActivityViewController`, not third-party SDKs; avatar generation uses `UIGraphicsImageRenderer`, not external image libraries.
+2. **Storyboard-centric** — UI changes should be made in `Main.storyboard`; view controllers use `@IBOutlet`/`@IBAction`. Exception: `SuccessViewController` checkmark animation is fully programmatic; initials avatar rendering is fully programmatic via `ImageViewExtension`.
 3. **DataManager is the source of truth** — Any data displayed across screens should flow through `DataManager.swift`.
 4. **Navigation is likely segue-based** — Use `performSegue(withIdentifier:sender:)` and `prepare(for:sender:)` patterns.
 5. **No real networking** — All transaction data is local/hardcoded or generated; there are no API calls to actual Cash App services.
@@ -244,3 +266,5 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
 7. **Function density** — With ~104 functions across ~33 files, average ~3.25 functions per file, suggesting relatively concise, focused view controllers.
 8. **Animation pattern established** — `SuccessViewController` sets the precedent for `CAShapeLayer`/`CABasicAnimation`-based animations. Any future animated UI elements should follow this same pattern: programmatic `UIBezierPath` drawing, `strokeEnd` animation, triggered in `viewDidAppear(_:)`, with `fillMode = .forwards` and `isRemovedOnCompletion = false`.
 9. **Share/export pattern established** — `ResultViewController` sets the precedent for screenshot and share sheet export. Any future share functionality should use `UIGraphicsImageRenderer` for rendering and `UIActivityViewController` for presentation, always triggered by explicit user action, with `popoverPresentationController?.sourceView` set for iPad compatibility.
+10. **Reusable UI utilities belong in extensions** — `ImageViewExtension` establishes the pattern that reusable, generic `UIKit` view helpers (circular masking, avatar generation, etc.) should be implemented as Swift extensions on the relevant UIKit class (e.g., `UIImageView`), not inlined into specific view controllers or cells. Future reusable view utilities should follow this same extension-based approach.
+11. **`UIGraphicsImageRenderer` is the standard rendering API** — Used consistently across `ResultViewController` (screenshot export) and `ImageViewExtension` (initials avatar). Any future programmatic image generation should use `UIGraphicsImageRenderer`, not the deprecated `UIGraphicsBeginImageContextWithOptions`.
