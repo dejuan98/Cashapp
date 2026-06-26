@@ -43,7 +43,7 @@ CashappSpoof/
     ├── SendViewController.swift    # Payment send flow
     ├── LoadingViewController.swift # Loading/transition screen
     ├── SuccessViewController.swift # Payment success screen (animated checkmark)
-    ├── ResultViewController.swift  # Transaction result screen
+    ├── ResultViewController.swift  # Transaction result screen (with share/export)
     ├── ActivityViewController.swift# Transaction activity list
     └── ActivityDetailViewController.swift # Detail view for activity
 ```
@@ -57,7 +57,7 @@ Launch Screen
             ├── SendViewController       → Initiates fake payment
             │       └── LoadingViewController  → Simulated processing
             │               └── SuccessViewController → Payment confirmed (animated checkmark)
-            │                       └── ResultViewController → Final result
+            │                       └── ResultViewController → Final result (screenshot/share)
             └── ActivityViewController  → Transaction history list
                     └── ActivityDetailViewController → Single transaction detail
 ```
@@ -109,6 +109,12 @@ Launch Screen
 ### `ResultViewController.swift`
 - Shows the final transaction result
 - May display a receipt-style view with sender, recipient, amount, and timestamp
+- **Screenshot/Share Sheet Export feature added:**
+  - Renders the result view (or a designated receipt subview) into a `UIImage` using `UIGraphicsImageRenderer`
+  - Presents a `UIActivityViewController` with the rendered image as the activity item
+  - Share button wired via `@IBAction` or programmatically added
+  - Export is triggered by user action (button tap), not automatically
+  - Follows iOS standard share sheet pattern — no third-party sharing libraries used
 
 ### `BalanceViewController.swift`
 - Displays a spoofed account balance screen
@@ -184,6 +190,14 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
 - **Sequencing**: Sequential animations achieved via `beginTime` offsets (`CACurrentMediaTime() + delay`) or `CAAnimationGroup`
 - **Fill mode**: `fillMode = .forwards` and `isRemovedOnCompletion = false` used to preserve end state of animations
 
+### Screenshot / Share Sheet Export Conventions
+- **Rendering**: View-to-image conversion uses `UIGraphicsImageRenderer` (modern API, not deprecated `UIGraphicsBeginImageContextWithOptions`)
+- **Share sheet**: `UIActivityViewController` initialized with the rendered `UIImage` as the sole or primary activity item
+- **Trigger**: Export is always user-initiated (button tap via `@IBAction`), never automatic
+- **Scope**: Only the relevant receipt/result view (or a designated subview) is captured, not the entire screen, to produce a clean shareable image
+- **No third-party libraries**: Sharing relies entirely on native UIKit (`UIActivityViewController`) — no external SDKs
+- **iPad compatibility**: When presenting `UIActivityViewController`, `popoverPresentationController?.sourceView` should be set to support iPad popover presentation
+
 ---
 
 ## Development Workflow
@@ -202,7 +216,7 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
 - **Scheme Management**: Custom scheme settings stored in `xcschememanagement.plist`
 
 ### File Count Summary
-- **Total Files**: 32
+- **Total Files**: ~33
 - **Swift Source Files**: ~14 view controllers + support files
 - **Storyboard Files**: 2 (Main + LaunchScreen)
 - **Asset Files**: Multiple image sets within `.xcassets`
@@ -210,13 +224,23 @@ Based on standard Swift/UIKit patterns inferred from the project structure:
 
 ---
 
+## Completed Features / Task Log
+
+| Feature | Location | Notes |
+|---|---|---|
+| Animated checkmark on success | `SuccessViewController.swift` | `CAShapeLayer` + `CABasicAnimation`, triggered in `viewDidAppear` |
+| Screenshot / Share Sheet Export | `ResultViewController.swift` | `UIGraphicsImageRenderer` → `UIActivityViewController`, user-initiated |
+
+---
+
 ## Important Notes for AI Coding Assistance
 
-1. **No external dependencies** — All code relies on native iOS/UIKit frameworks only; animations use `CoreAnimation`, not libraries like Lottie.
+1. **No external dependencies** — All code relies on native iOS/UIKit frameworks only; animations use `CoreAnimation`, not libraries like Lottie; sharing uses `UIActivityViewController`, not third-party SDKs.
 2. **Storyboard-centric** — UI changes should be made in `Main.storyboard`; view controllers use `@IBOutlet`/`@IBAction`. Exception: `SuccessViewController` checkmark animation is fully programmatic.
 3. **DataManager is the source of truth** — Any data displayed across screens should flow through `DataManager.swift`.
 4. **Navigation is likely segue-based** — Use `performSegue(withIdentifier:sender:)` and `prepare(for:sender:)` patterns.
 5. **No real networking** — All transaction data is local/hardcoded or generated; there are no API calls to actual Cash App services.
 6. **iOS 13+ scene lifecycle** — Both `AppDelegate` and `SceneDelegate` are present, indicating iOS 13+ multi-scene support.
-7. **Function density** — With 104 functions across 32 files, average ~3.25 functions per file, suggesting relatively concise, focused view controllers.
+7. **Function density** — With ~104 functions across ~33 files, average ~3.25 functions per file, suggesting relatively concise, focused view controllers.
 8. **Animation pattern established** — `SuccessViewController` sets the precedent for `CAShapeLayer`/`CABasicAnimation`-based animations. Any future animated UI elements should follow this same pattern: programmatic `UIBezierPath` drawing, `strokeEnd` animation, triggered in `viewDidAppear(_:)`, with `fillMode = .forwards` and `isRemovedOnCompletion = false`.
+9. **Share/export pattern established** — `ResultViewController` sets the precedent for screenshot and share sheet export. Any future share functionality should use `UIGraphicsImageRenderer` for rendering and `UIActivityViewController` for presentation, always triggered by explicit user action, with `popoverPresentationController?.sourceView` set for iPad compatibility.
